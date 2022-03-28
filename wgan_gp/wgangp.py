@@ -552,7 +552,9 @@ if __name__ == '__main__':
         "batch_size": 32,
         "epochs": 400,
         "fit": False,
-        "load": True
+        "load": True,
+        "img_save_interval": 100,
+        "gpu": False
     }
     global img_shape
     img_shape = (96, 96, 3)
