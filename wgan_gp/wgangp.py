@@ -4,8 +4,6 @@ import time
 import json
 
 s_path = os.path.dirname(os.getcwd())
-print(s_path)
-input()
 sys.path.insert(0, s_path)
 from data import parse
 from gan import gan
