@@ -554,7 +554,7 @@ if __name__ == '__main__':
         "batch_size": 32,
         "epochs": 400,
         "fit": True,
-        "load": True,
+        "load": False,
         "img_save_interval": 100,
         "gpu": False
     }
