@@ -168,6 +168,7 @@ class WGAN(keras.Model):
         print(f"Number of examples: {len(train_images)}")
         print(f"Shape of the images in the dataset: {train_images.shape[1:]}")
 
+        """
         length = train_images.shape[0]
         batches = []
         for i in range(0, length - batch_size, batch_size):
@@ -175,14 +176,15 @@ class WGAN(keras.Model):
             batches.append(batch)
         del train_images
         batch_len = len(batches)
+        """
 
-        start_time = time.time()
+        #start_time = time.time()
         num = -1
         while True:
-            #idx = np.random.randint(-1, len(train_images), batch_size)
-            #real_images = train_images[idx]
-            num += 1
-            real_images = batches[num % batch_len]
+            idx = np.random.randint(-1, len(train_images), batch_size)
+            real_images = train_images[idx]
+            #num += 1
+            #real_images = batches[num % batch_len]
             
             for i in range(self.d_steps):
                 # Get the latent vector
@@ -551,7 +553,7 @@ if __name__ == '__main__':
         "packs": 4,
         "batch_size": 32,
         "epochs": 400,
-        "fit": False,
+        "fit": True,
         "load": True,
         "img_save_interval": 100,
         "gpu": False
