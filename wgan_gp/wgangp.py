@@ -58,10 +58,10 @@ def upsample_block(x,
     x = layer(
         filters, kernel_size, strides=strides, padding=padding, use_bias=use_bias
     )(x)
-    
+
     if use_bn:
         x = layers.BatchNormalization()(x)
-    
+
     if activation:
         x = activation(x)
     if use_dropout:
@@ -79,23 +79,23 @@ class WGAN(keras.Model):
         self.latent_dim = latent_dim
         self.d_steps = discriminator_extra_steps
         self.gp_weight = gp_weight
-    
+
         self.img_save_interval = img_save_interval
         self.latent_dim = latent_dim
-    
+
     def compile(self, d_optimizer, g_optimizer, d_loss_fn, g_loss_fn):
         super(WGAN, self).compile()
         self.d_optimizer = d_optimizer
         self.g_optimizer = g_optimizer
         self.d_loss_fn = d_loss_fn
         self.g_loss_fn = g_loss_fn
-    
+
     def train_step(self, real_images):
         if isinstance(real_images, tuple):
             real_images = real_images[0]
-        
+
         batch_size = tf.shape(real_images)[0]
-        
+
         # For each batch, we are going to perform the
         # following steps as laid out in the original paper:
         # 1. Train the generator and get the generator loss
@@ -104,7 +104,7 @@ class WGAN(keras.Model):
         # 4. Multiply this gradient penalty with a constant weight factor
         # 5. Add the gradient penalty to the discriminator loss
         # 6. Return the generator and discriminator losses as a loss dictionary
-        
+
         # Train the discriminator first. The original paper recommends training
         # the discriminator for `x` more steps (typically 5) as compared to
         # one step of the generator. Here we will train it for 3 extra steps
@@ -118,43 +118,43 @@ class WGAN(keras.Model):
                 fake_images = self.generator(random_latent_vectors, training=True)
                 fake_logits = self.discriminator(fake_images, training=True)
                 real_logits = self.discriminator(real_images, training=True)
-                
+
                 d_cost = self.d_loss_fn(real_img=real_logits, fake_img=fake_logits)
                 gp = self.gradient_penalty(batch_size, real_images, fake_images)
                 d_loss = d_cost + gp * self.gp_weight
-            
+
             d_gradient = tape.gradient(d_loss, self.discriminator.trainable_variables)
             self.d_optimizer.apply_gradients(
                 zip(d_gradient, self.discriminator.trainable_variables)
             )
-        
+
         random_latent_vectors = tf.random.normal(shape=(batch_size, self.latent_dim))
         with tf.GradientTape() as tape:
             generated_images = self.generator(random_latent_vectors, training=True)
             gen_img_logits = self.discriminator(generated_images, training=True)
             g_loss = self.g_loss_fn(gen_img_logits)
-        
+
         gen_gradient = tape.gradient(g_loss, self.generator.trainable_variables)
         self.g_optimizer.apply_gradients(
             zip(gen_gradient, self.generator.trainable_variables)
         )
         kwargs = {"d_loss": d_loss, "g_loss": g_loss}
         return kwargs
-    
+
     def gradient_penalty(self, batch_size, real_images, fake_images):
         alpha = tf.random.normal([batch_size, 1, 1, 1], 0.0, 1.0)
         diff = fake_images - real_images
         interpolated = real_images + alpha * diff
-        
+
         with tf.GradientTape() as gp_tape:
             gp_tape.watch(interpolated)
             pred = self.discriminator(interpolated, training=True)
-        
+
         grads = gp_tape.gradient(pred, [interpolated])[0]
         norm = tf.sqrt(tf.reduce_sum(tf.square(grads), axis=[1, 2, 3]))
         gp = tf.reduce_mean((norm - 1.0) ** 2)
         return gp
-    
+
     def train(self, batch_size=32, project='Project', packs=3, load=False,
               cbk=None, test=False):
         if test:
@@ -178,14 +178,14 @@ class WGAN(keras.Model):
         batch_len = len(batches)
         """
 
-        #start_time = time.time()
+        # start_time = time.time()
         num = -1
         while True:
             idx = np.random.randint(-1, len(train_images), batch_size)
             real_images = train_images[idx]
-            #num += 1
-            #real_images = batches[num % batch_len]
-            
+            # num += 1
+            # real_images = batches[num % batch_len]
+
             for i in range(self.d_steps):
                 # Get the latent vector
                 random_latent_vectors = tf.random.normal(
@@ -195,22 +195,22 @@ class WGAN(keras.Model):
                     fake_images = self.generator(random_latent_vectors, training=True)
                     fake_logits = self.discriminator(fake_images, training=True)
                     real_logits = self.discriminator(real_images, training=True)
-                    
+
                     d_cost = self.d_loss_fn(real_img=real_logits, fake_img=fake_logits)
                     gp = self.gradient_penalty(batch_size, real_images, fake_images)
                     d_loss = d_cost + gp * self.gp_weight
-                
+
                 d_gradient = tape.gradient(d_loss, self.discriminator.trainable_variables)
                 self.d_optimizer.apply_gradients(
                     zip(d_gradient, self.discriminator.trainable_variables)
                 )
-            
+
             random_latent_vectors = tf.random.normal(shape=(batch_size, self.latent_dim))
             with tf.GradientTape() as tape:
                 generated_images = self.generator(random_latent_vectors, training=True)
                 gen_img_logits = self.discriminator(generated_images, training=True)
                 g_loss = self.g_loss_fn(gen_img_logits)
-            
+
             gen_gradient = tape.gradient(g_loss, self.generator.trainable_variables)
             self.g_optimizer.apply_gradients(
                 zip(gen_gradient, self.generator.trainable_variables)
@@ -231,7 +231,7 @@ class GANMonitor(keras.callbacks.Callback):
     last_epoch = 0
     pause = False
     to_plot = {}
-    
+
     def __init__(self, model, img_shape, img_table=(5, 5), name='Project',
                  latent_dim=128, img_save_interval=50):
         self.model = model
@@ -253,7 +253,7 @@ class GANMonitor(keras.callbacks.Callback):
             os.mkdir(os.path.join('projects', self.name, 'video'))
             os.mkdir(os.path.join('projects', self.name, 'images'))
             os.mkdir(os.path.join('projects', self.name, 'combined'))
-    
+
     def log_plot(self, **kwargs):
         if self.last_epoch == 0:
             for kwarg in kwargs:
@@ -261,7 +261,7 @@ class GANMonitor(keras.callbacks.Callback):
         for kwarg in kwargs:
             graph = self.to_plot[kwarg]
             graph.append(kwargs[kwarg])
-    
+
     def plot_history(self):
         approx = 40
         new_plot = {}
@@ -269,19 +269,19 @@ class GANMonitor(keras.callbacks.Callback):
             graph = self.to_plot[label]
             new_graph = []
             for i in range(approx - 1, len(graph)):
-                average = np.average(graph[i-14:i+1])
+                average = np.average(graph[i - 14:i + 1])
                 new_graph.append(average)
             new_plot[label] = new_graph
-        
+
         for label in new_plot:
             graph = new_plot[label]
             pyplot.plot(graph, label=label)
-        
+
         pyplot.legend()
         pyplot.savefig(os.path.join(self.project_path, 'plot_stats.png'), dpi=500)
         pyplot.close()
         print('Hp', end='')
-    
+
     def save_imgs(self, epoch):
         gen_imgs = self.model.generator.predict(self._video_noise)
         gen_imgs = 127.5 * gen_imgs + 127.5
@@ -289,7 +289,7 @@ class GANMonitor(keras.callbacks.Callback):
         im_image = Image.fromarray(np_image, 'RGB')
         im_image.save(os.path.join("projects", self.name, "images", "%d.png" % epoch))
         del im_image
-    
+
     def load_config(self, restore=False):
         config_path = os.path.join('projects', self.name, 'config.json')
         try:
@@ -305,7 +305,7 @@ class GANMonitor(keras.callbacks.Callback):
                 print('Config loaded')
         except:
             print('Error loading config')
-    
+
     def save_config(self):
         config_path = os.path.join('projects', self.name, 'config.json')
         try:
@@ -318,14 +318,14 @@ class GANMonitor(keras.callbacks.Callback):
             print('Cs', end='')
         except:
             print('Error saving config')
-    
+
     def manage(self):
         if self.last_epoch % self.img_save_interval == 0:
             try:
                 self.save_imgs(self.last_epoch)
             except Exception as err:
                 print(f'Error saving img: {err}')
-        
+
         self.last_epoch += 1
         # if self.last_epoch <= max(self.frames):
         #    try:
@@ -346,7 +346,7 @@ class GANMonitor(keras.callbacks.Callback):
             self.load_config(restore=False)
         if self.last_epoch % 100 == 0:
             self.save_config()
-        
+
         while self.pause:
             print('Paused')
             try:
@@ -355,11 +355,11 @@ class GANMonitor(keras.callbacks.Callback):
             except:
                 self.pause = False
                 self.save_config()
-    
+
     def on_batch_end(self, batch, logs):
         self.log_plot(**logs)
         self.manage()
-    
+
     def save_net(self):
         generator_path = os.path.join('project', self.name, 'generator')
         discriminator_path = os.path.join('project', self.name, 'discriminator')
@@ -429,8 +429,8 @@ def get_discriminator_model(img_shape, strides=True):
     x = conv_block(img_input, 64, layers.LeakyReLU(0.2), 3, stride_value,
                    use_bias=True, use_dropout=False,
                    drop_value=0.3, use_pooling=not strides)
-    x = conv_block(x, 64, layers.LeakyReLU(0.2),3,stride_value,
-                   use_bias=True,use_dropout=True,
+    x = conv_block(x, 64, layers.LeakyReLU(0.2), 3, stride_value,
+                   use_bias=True, use_dropout=True,
                    drop_value=0.1, use_pooling=not strides)
     x = conv_block(x, 64, layers.LeakyReLU(0.2), 3, stride_value,
                    use_bias=True, use_dropout=True,
@@ -441,22 +441,22 @@ def get_discriminator_model(img_shape, strides=True):
     x = conv_block(x, 128, layers.LeakyReLU(0.2), 3, stride_value,
                    use_bias=True, use_dropout=False,
                    drop_value=0.3, use_pooling=not strides)
-    
+
     x = layers.Flatten()(x)
     x = layers.Dense(64)(x)
     x = layers.LeakyReLU()(x)
     x = layers.Dropout(0.15)(x)
-    
+
     x = layers.Dense(32)(x)
     x = layers.LeakyReLU()(x)
     x = layers.Dropout(0.15)(x)
-    
+
     x = layers.Dense(16)(x)
     x = layers.LeakyReLU()(x)
     x = layers.Dropout(0.15)(x)
-    
+
     x = layers.Dense(1)(x)
-    
+
     d_model = keras.models.Model(img_input, x, name="discriminator")
     return d_model
 
@@ -466,7 +466,7 @@ def get_generator_model(noise_dim, start_dense, dimensions, transp_conv=False):
     x = layers.Dense(np.prod(start_dense), use_bias=False)(noise)
     x = layers.BatchNormalization()(x)
     x = layers.LeakyReLU(0.2)(x)
-    
+
     x = layers.Reshape(start_dense)(x)
     x = upsample_block(x, 164, layers.LeakyReLU(0.2), use_bias=False, use_bn=True, transp_conv=transp_conv)
     x = upsample_block(x, 128, layers.LeakyReLU(0.2), use_bias=False, use_bn=True, transp_conv=transp_conv)
@@ -474,7 +474,7 @@ def get_generator_model(noise_dim, start_dense, dimensions, transp_conv=False):
     x = upsample_block(x, 64, layers.LeakyReLU(0.2), use_bias=False, use_bn=True, transp_conv=transp_conv)
     x = upsample_block(x, dimensions, layers.Activation("tanh"), kernel_size=3,
                        strides=(1, 1), use_bias=False, use_bn=True, transp_conv=transp_conv)
-    
+
     g_model = keras.models.Model(noise, x, name="generator")
     return g_model
 
@@ -488,7 +488,7 @@ def start_frame(project='Project', batch_size=64,
                 learning_rate=0.00005, test=False,
                 load=False, adam=False):
     img_table = img_save_table
-    
+
     train_images = []
     if test:
         mnist = keras.datasets.mnist
@@ -543,23 +543,24 @@ def start_frame(project='Project', batch_size=64,
 
 
 if __name__ == '__main__':
+    global img_shape
+    img_shape = (64, 64, 3)
     args = {
         "learning_rate": [0.0005, 0.0002, 0.00005],
         "noise_dim": [50, 200],
-        "start_dense": [(3, 3, 512), (3, 3, 128), (6, 6, 192)],
+        "start_dense": [(2, 2, 512), (2, 2, 256), (2, 2, 128)],
         "strides": [True, False],
         "transp_conv": [True, False],
-        "project": "diamonds96",
+        "project": "diamonds64",
+        "img_shape": img_shape,
         "packs": 4,
-        "batch_size": 32,
-        "epochs": 400,
+        "batch_size": 24,
+        "epochs": 300,
         "fit": True,
         "load": False,
         "img_save_interval": 100,
-        "gpu": False
+        "gpu": True
     }
-    global img_shape
-    img_shape = (96, 96, 3)
-    experiments = experiment(args)
+    experiments = experiment(args)[2:4]
     for kwargs in experiments:
         start_frame(**kwargs)
