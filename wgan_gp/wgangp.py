@@ -7,7 +7,7 @@ s_path = os.path.dirname(os.getcwd())
 sys.path.insert(0, s_path)
 from data import parse
 from gan import gan
-from experiment import experiment
+from manage.experiment import experiment
 
 from PIL import Image
 import numpy as np
@@ -260,10 +260,11 @@ class GANMonitor(keras.callbacks.Callback):
                 self.to_plot[kwarg] = []
         for kwarg in kwargs:
             graph = self.to_plot[kwarg]
-            graph.append(kwargs[kwarg])
+            ranged = get_overrange(kwargs[kwarg], 500)
+            graph.append(ranged)
 
     def plot_history(self):
-        approx = 40
+        approx = 100
         new_plot = {}
         for label in self.to_plot:
             graph = self.to_plot[label]
@@ -361,13 +362,24 @@ class GANMonitor(keras.callbacks.Callback):
         self.manage()
 
     def save_net(self):
-        generator_path = os.path.join('project', self.name, 'generator')
-        discriminator_path = os.path.join('project', self.name, 'discriminator')
-        print('Saving generator...')
+        generator_path = os.path.join('projects', self.name, 'generator')
+        discriminator_path = os.path.join('projects', self.name, 'discriminator')
+        #print('Saving generator...')
         self.model.generator.save(generator_path)
-        print('Generator saved. Saving discriminator...')
+        #print('Generator saved. Saving discriminator...')
         self.model.discriminator.save(discriminator_path)
-        print('Discriminator saved')
+        #print('Discriminator saved')
+
+
+def get_overrange(average, max_range, k=0.6):
+    naverage = np.amax([average, -1 * max_range])
+    naverage = np.amin([naverage, max_range])
+    if abs(average) > max_range:
+        minus = -1 if average < 0 else 1
+        division = average - naverage
+        inc = minus * abs(division) ** k
+        naverage += inc
+    return naverage
 
 
 def save_optimizer_state(optimizer, save_path, save_name):
@@ -540,6 +552,13 @@ def start_frame(project='Project', batch_size=64,
     else:
         wgan.train(batch_size=batch_size, project=project, packs=packs, load=load,
                    test=test, cbk=cbk)
+    print(f'{time.asctime()} WGAN EVALUATED SUCCESSFULLY!')
+    del generator_optimizer
+    del discriminator_optimizer
+    del d_model
+    del g_model
+    del wgan
+    del cbk
 
 
 if __name__ == '__main__':
@@ -548,7 +567,7 @@ if __name__ == '__main__':
     args = {
         "learning_rate": [0.0005, 0.0002, 0.00005],
         "noise_dim": [50, 200],
-        "start_dense": [(2, 2, 512), (2, 2, 256), (2, 2, 128)],
+        "start_dense": [(2, 2, 512), (2, 2, 128)],
         "strides": [True, False],
         "transp_conv": [True, False],
         "project": "diamonds64",
@@ -561,6 +580,12 @@ if __name__ == '__main__':
         "img_save_interval": 100,
         "gpu": True
     }
-    experiments = experiment(args)[2:4]
-    for kwargs in experiments:
+    experiments = experiment(args)
+
+    if len(sys.argv) >= 2:
+        exp_num = int(sys.argv[1])
+        kwargs = experiments[exp_num]
         start_frame(**kwargs)
+    else:
+        for kwargs in experiments[5:7]:
+            start_frame(**kwargs)
