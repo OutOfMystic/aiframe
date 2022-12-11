@@ -7,9 +7,10 @@ from multiprocessing import Queue, Pipe
 from threading import Thread
 
 import numpy as np
+from loguru import logger
 from tensorflow.python import keras
 
-from aiframe.export.items import NumQueue
+from .items import NumQueue
 
 
 class Solver(Thread):
@@ -35,6 +36,8 @@ class Solver(Thread):
         return self.solve(items, is_pack=True)
 
     def solve(self, item, is_pack=False):
+        if not item:
+            return tuple()
         hash_ = random.random()
         task = {'hash': hash_, 'item': item, 'is_pack': is_pack}
         self.queue.put(task)
@@ -65,6 +68,7 @@ class Solver(Thread):
             while not self.queue.empty():
                 task = self.queue.get()
                 tasks.append(task)
+                logger.info(task)
 
             unpack_iters = [self._unpack_task(task) for task in tasks]
             unpacked_tasks = list(itertools.chain(*unpack_iters))
@@ -84,7 +88,11 @@ class Solver(Thread):
                 del self._solutions[hash_]
 
     def _init_model(self):
-        self._model = keras.models.load_model(self.model_name)
+        for _ in range(10):
+            try:
+                self._model = keras.models.load_model(self.model_name)
+            except AttributeError as err:
+                print(f'Loading model aerror: {err}')
         asset_path = os.path.join(self.model_name, 'assets', 'summary.json')
         with open(asset_path, 'r') as f:
             summary = json.load(f)
