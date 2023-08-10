@@ -18,7 +18,7 @@ class Solver(Thread):
     def __init__(self, model_name,
                  in_converter=None,
                  out_converter=None,
-                 timeout=60):
+                 timeout=180):
         super().__init__()
         self.model_name = model_name
         self.in_converter = in_converter if in_converter is not None else np.array
