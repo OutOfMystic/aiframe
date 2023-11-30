@@ -18,9 +18,11 @@ class Solver(Thread):
     def __init__(self, model_name,
                  in_converter=None,
                  out_converter=None,
+                 remember_answers=False,
                  timeout=60):
         super().__init__()
         self.model_name = model_name
+        self.remember_answers = remember_answers
         self.in_converter = in_converter if in_converter is not None else np.array
         self.out_converter = out_converter if out_converter is not None else np.array
         self.timeout = timeout
@@ -29,10 +31,12 @@ class Solver(Thread):
         self._model = None
         self._solutions = {}
         self._timeouted = []
+        self._answers = {}
 
         self.start()
 
     def solve_pack(self, items):
+        tupled_items = tuple(items)
         return self.solve(items, is_pack=True)
 
     def solve(self, item, is_pack=False):
@@ -68,19 +72,35 @@ class Solver(Thread):
             while not self.queue.empty():
                 task = self.queue.get()
                 tasks.append(task)
-                logger.info(task)
+
+            """if self.remember_answers:
+                if tupled_items in self._answers:
+                    return self._answers[tupled_items]
+                else:
+                    answers = self.solve(items, is_pack=True)
+                    self._answers[tupled_items] = answers
+                    return answers"""
 
             unpack_iters = [self._unpack_task(task) for task in tasks]
             unpacked_tasks = list(itertools.chain(*unpack_iters))
+            solutions =
+            if self.remember_answers:
+                for i, task in enumerate(unpacked_tasks):
+                    item = task['item']
+                    if item in self._answers:
+                        solutions[i] = self._answers[]
+
             translated = [self.in_converter(task['item']) for task in unpacked_tasks]
             inputs = np.array(translated)
             outputs = self._model.predict(inputs)
+
             solutions = {}
             for output, task in zip(outputs, unpacked_tasks):
                 hash_ = task['hash']
                 if hash_ not in solutions:
                     solutions[hash_] = []
                 output = self.out_converter(output)
+                assert output is not None, 'got ``None`` Answer, use ``False`` instead'
                 solutions[hash_].append(output)
             self._solutions.update(solutions)
 
