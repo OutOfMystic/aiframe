@@ -92,7 +92,6 @@ class Solver(Thread):
 
             translated = [self.in_converter(task['item']) for task in tasks_to_solve.values()]
             inputs = np.array(translated)
-            logger.debug(inputs.shape[0])
             outputs = self._model.predict(inputs) if translated else []
 
             packed_solutions = {}
