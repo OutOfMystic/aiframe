@@ -1,10 +1,12 @@
 import itertools
 import json
 import os
+import pickle
 import random
 import time
 from multiprocessing import Queue, Pipe
 from threading import Thread
+from typing import Iterable
 
 import numpy as np
 from loguru import logger
@@ -18,21 +20,31 @@ class Solver(Thread):
     def __init__(self, model_name,
                  in_converter=None,
                  out_converter=None,
-                 timeout=180):
+                 remember_answers=False,
+                 timeout=60):
         super().__init__()
         self.model_name = model_name
+        self.cache_path = os.path.join(self.model_name, 'assets', 'cache.pkl')
+        self.remember_answers = remember_answers
         self.in_converter = in_converter if in_converter is not None else np.array
         self.out_converter = out_converter if out_converter is not None else np.array
         self.timeout = timeout
 
         self.queue = Queue()
         self._model = None
-        self._solutions = {}
         self._timeouted = []
+        self._solutions = {}
+        try:
+            with open(self.cache_path, 'rb') as f:
+                self._answers = pickle.load(f)
+        except:
+            self._answers = {}
 
         self.start()
 
-    def solve_pack(self, items):
+    def solve_pack(self, items: Iterable):
+        if not items:
+            return []
         return self.solve(items, is_pack=True)
 
     def solve(self, item, is_pack=False):
@@ -68,31 +80,50 @@ class Solver(Thread):
             while not self.queue.empty():
                 task = self.queue.get()
                 tasks.append(task)
-                logger.info(task)
 
             unpack_iters = [self._unpack_task(task) for task in tasks]
             unpacked_tasks = list(itertools.chain(*unpack_iters))
-            translated = [self.in_converter(task['item']) for task in unpacked_tasks]
+            solutions = [None for _ in unpacked_tasks]
+            if self.remember_answers:
+                for i, task in enumerate(unpacked_tasks):
+                    item = task['item']
+                    solutions[i] = self._answers.get(item, None)
+            tasks_to_solve = {i: task for i, task in enumerate(unpacked_tasks) if solutions[i] is None}
+
+            translated = [self.in_converter(task['item']) for task in tasks_to_solve.values()]
             inputs = np.array(translated)
-            outputs = self._model.predict(inputs)
-            solutions = {}
-            for output, task in zip(outputs, unpacked_tasks):
-                hash_ = task['hash']
-                if hash_ not in solutions:
-                    solutions[hash_] = []
+            logger.debug(inputs.shape[0])
+            outputs = self._model.predict(inputs) if translated else []
+
+            packed_solutions = {}
+            for output, index in zip(outputs, tasks_to_solve.keys()):
                 output = self.out_converter(output)
-                solutions[hash_].append(output)
-            self._solutions.update(solutions)
+                if output is None:
+                    logger.warning('got ``None`` Answer from out_converter, use ``False`` instead')
+                    output = False
+                solutions[index] = output
+            for answer, task in zip(solutions, unpacked_tasks):
+                hash_ = task['hash']
+                if hash_ not in packed_solutions:
+                    packed_solutions[hash_] = []
+                packed_solutions[hash_].append(answer)
+                if self.remember_answers:
+                    item = task['item']
+                    self._answers[item] = answer
+            self._solutions.update(packed_solutions)
 
             for hash_ in self._timeouted:
                 del self._solutions[hash_]
+            if self.remember_answers and translated:
+                with open(self.cache_path, 'wb+') as f:
+                    pickle.dump(self._answers, f)
 
     def _init_model(self):
         for _ in range(10):
             try:
                 self._model = keras.models.load_model(self.model_name)
             except AttributeError as err:
-                print(f'Loading model aerror: {err}')
+                print(f'Loading model error: {err}')
         asset_path = os.path.join(self.model_name, 'assets', 'summary.json')
         with open(asset_path, 'r') as f:
             summary = json.load(f)
