@@ -9,10 +9,20 @@ from threading import Thread
 from typing import Iterable
 
 import numpy as np
+import tensorflow as tf
 from loguru import logger
 from tensorflow.python import keras
 
 from .items import NumQueue
+
+
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+    try:
+        tf.config.experimental.set_virtual_device_configuration(
+            gpus[0],[tf.config.experimental.VirtualDeviceConfiguration(memory_limit=1024)])
+    except RuntimeError as e:
+        print(e)
 
 
 class Solver(Thread):
@@ -92,7 +102,6 @@ class Solver(Thread):
 
             translated = [self.in_converter(task['item']) for task in tasks_to_solve.values()]
             inputs = np.array(translated)
-            logger.debug(inputs.shape[0])
             outputs = self._model.predict(inputs) if translated else []
 
             packed_solutions = {}
