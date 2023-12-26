@@ -4,7 +4,8 @@ import os
 import pickle
 import random
 import time
-from multiprocessing import Queue, Pipe
+from multiprocessing import Pipe
+from queue import Queue
 from threading import Thread
 from typing import Iterable
 
